@@ -47,6 +47,7 @@
   },
   "homepage": "https://github.com/vercel-labs/agent-browser#readme",
   "dependencies": {
+    "@browserbasehq/sdk": "^2.0.0",
     "playwright-core": "^1.57.0",
     "zod": "^3.22.4"
   },
