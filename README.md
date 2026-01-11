@@ -672,7 +672,7 @@ export BROWSERBASE_PROJECT_ID="your-project-id"
 
 When both variables are set, agent-browser automatically connects to a Browserbase session instead of launching a local browser. All commands work identically.
 
-Get your API key and project ID from the [Browserbase Dashboard](https://browserbase.com/dashboard).
+Get your API key and project ID from the [Browserbase Dashboard](https://browserbase.com/overview).
 
 ## License
 
