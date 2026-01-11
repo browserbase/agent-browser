@@ -150,11 +150,11 @@ export async function startDaemon(): Promise<void> {
             continue;
           }
 
-          // Auto-launch browser if not already launched and this isn't a launch command
+          // Auto-launch browser if not already launched and this isn't a launch/close/session command
+          const noLaunchActions = ['launch', 'close', 'bb_session_list', 'bb_session_get', 'bb_session_debug', 'bb_session_stop'];
           if (
             !browser.isLaunched() &&
-            parseResult.command.action !== 'launch' &&
-            parseResult.command.action !== 'close'
+            !noLaunchActions.includes(parseResult.command.action)
           ) {
             await browser.launch({ id: 'auto', action: 'launch', headless: true });
           }

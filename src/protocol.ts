@@ -678,6 +678,27 @@ const windowNewSchema = baseCommandSchema.extend({
     .optional(),
 });
 
+// Browserbase session schemas
+const bbSessionListSchema = baseCommandSchema.extend({
+  action: z.literal('bb_session_list'),
+  status: z.enum(['RUNNING', 'ERROR', 'TIMED_OUT', 'COMPLETED']).optional(),
+});
+
+const bbSessionGetSchema = baseCommandSchema.extend({
+  action: z.literal('bb_session_get'),
+  sessionId: z.string().min(1),
+});
+
+const bbSessionDebugSchema = baseCommandSchema.extend({
+  action: z.literal('bb_session_debug'),
+  sessionId: z.string().min(1),
+});
+
+const bbSessionStopSchema = baseCommandSchema.extend({
+  action: z.literal('bb_session_stop'),
+  sessionId: z.string().min(1),
+});
+
 // Union schema for all commands
 const commandSchema = z.discriminatedUnion('action', [
   launchSchema,
@@ -794,6 +815,10 @@ const commandSchema = z.discriminatedUnion('action', [
   multiSelectSchema,
   waitForDownloadSchema,
   responseBodySchema,
+  bbSessionListSchema,
+  bbSessionGetSchema,
+  bbSessionDebugSchema,
+  bbSessionStopSchema,
 ]);
 
 // Parse result type

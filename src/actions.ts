@@ -1,4 +1,5 @@
 import type { Page, Frame } from 'playwright-core';
+import Browserbase from '@browserbasehq/sdk';
 import type { BrowserManager } from './browser.js';
 import type {
   Command,
@@ -102,6 +103,10 @@ import type {
   TabNewData,
   TabSwitchData,
   TabCloseData,
+  BbSessionListCommand,
+  BbSessionGetCommand,
+  BbSessionDebugCommand,
+  BbSessionStopCommand,
 } from './types.js';
 import { successResponse, errorResponse } from './protocol.js';
 
@@ -345,6 +350,14 @@ export async function executeCommand(command: Command, browser: BrowserManager):
         return await handleWaitForDownload(command, browser);
       case 'responsebody':
         return await handleResponseBody(command, browser);
+      case 'bb_session_list':
+        return await handleBbSessionList(command);
+      case 'bb_session_get':
+        return await handleBbSessionGet(command);
+      case 'bb_session_debug':
+        return await handleBbSessionDebug(command);
+      case 'bb_session_stop':
+        return await handleBbSessionStop(command);
       default: {
         // TypeScript narrows to never here, but we handle it for safety
         const unknownCommand = command as { id: string; action: string };
@@ -1667,4 +1680,82 @@ async function handleResponseBody(
     status: response.status(),
     body: parsed,
   });
+}
+
+// Browserbase Session Management Handlers
+
+function getBrowserbaseClient(): Browserbase {
+  const apiKey = process.env.BROWSERBASE_API_KEY;
+  if (!apiKey) {
+    throw new Error('BROWSERBASE_API_KEY environment variable is not set');
+  }
+  return new Browserbase({ apiKey });
+}
+
+async function handleBbSessionList(command: BbSessionListCommand): Promise<Response> {
+  const bb = getBrowserbaseClient();
+  const sessions = await bb.sessions.list({
+    status: command.status,
+  });
+
+  // Convert to plain objects for JSON serialization
+  const sessionList = [];
+  for await (const session of sessions) {
+    sessionList.push({
+      id: session.id,
+      status: session.status,
+      createdAt: session.createdAt,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      projectId: session.projectId,
+      region: session.region,
+    });
+  }
+
+  return successResponse(command.id, { sessions: sessionList });
+}
+
+async function handleBbSessionGet(command: BbSessionGetCommand): Promise<Response> {
+  const bb = getBrowserbaseClient();
+  const session = await bb.sessions.retrieve(command.sessionId);
+
+  return successResponse(command.id, {
+    session: {
+      id: session.id,
+      status: session.status,
+      createdAt: session.createdAt,
+      startedAt: session.startedAt,
+      endedAt: session.endedAt,
+      projectId: session.projectId,
+      region: session.region,
+      proxyBytes: session.proxyBytes,
+      avgCpuUsage: session.avgCpuUsage,
+      memoryUsage: session.memoryUsage,
+    },
+  });
+}
+
+async function handleBbSessionDebug(command: BbSessionDebugCommand): Promise<Response> {
+  const bb = getBrowserbaseClient();
+  const debug = await bb.sessions.debug(command.sessionId);
+
+  return successResponse(command.id, {
+    debuggerFullscreenUrl: debug.debuggerFullscreenUrl,
+    debuggerUrl: debug.debuggerUrl,
+    wsUrl: debug.wsUrl,
+  });
+}
+
+async function handleBbSessionStop(command: BbSessionStopCommand): Promise<Response> {
+  const bb = getBrowserbaseClient();
+  const projectId = process.env.BROWSERBASE_PROJECT_ID;
+  if (!projectId) {
+    throw new Error('BROWSERBASE_PROJECT_ID environment variable is not set');
+  }
+  await bb.sessions.update(command.sessionId, {
+    projectId,
+    status: 'REQUEST_RELEASE',
+  });
+
+  return successResponse(command.id, { stopped: true, sessionId: command.sessionId });
 }
