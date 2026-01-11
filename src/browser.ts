@@ -12,6 +12,7 @@ import {
   type Route,
   type Locator,
 } from 'playwright-core';
+import Browserbase from '@browserbasehq/sdk';
 import type { LaunchCommand } from './types.js';
 import { type RefMap, type EnhancedSnapshot, getEnhancedSnapshot, parseRef } from './snapshot.js';
 
@@ -495,12 +496,47 @@ export class BrowserManager {
   }
 
   /**
+   * Connect to Browserbase remote browser via CDP.
+   * Returns true if connected, false if credentials not available.
+   */
+  private async connectToBrowserbase(): Promise<boolean> {
+    const browserbaseApiKey = process.env.BROWSERBASE_API_KEY;
+    const browserbaseProjectId = process.env.BROWSERBASE_PROJECT_ID;
+
+    if (!browserbaseApiKey || !browserbaseProjectId) {
+      return false;
+    }
+
+    const bb = new Browserbase({ apiKey: browserbaseApiKey });
+    const session = await bb.sessions.create({ projectId: browserbaseProjectId });
+    this.browser = await chromium.connectOverCDP(session.connectUrl);
+
+    // Get default context to ensure sessions are recorded
+    const context = this.browser.contexts()[0];
+    context.setDefaultTimeout(10000);
+    this.contexts.push(context);
+
+    // Get existing page or create new one
+    const page = context.pages()[0] ?? (await context.newPage());
+    this.pages.push(page);
+    this.activePageIndex = 0;
+    this.setupPageTracking(page);
+
+    return true;
+  }
+
+  /**
    * Launch the browser with the specified options
    * If already launched, this is a no-op (browser stays open)
    */
   async launch(options: LaunchCommand): Promise<void> {
     // If already launched, don't relaunch
     if (this.browser) {
+      return;
+    }
+
+    // Try connecting to Browserbase if credentials are available
+    if (await this.connectToBrowserbase()) {
       return;
     }
 
