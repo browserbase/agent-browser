@@ -108,7 +108,7 @@ fn get_port_for_session(session: &str) -> u16 {
 }
 
 #[cfg(unix)]
-fn is_daemon_running(session: &str) -> bool {
+pub fn is_daemon_running(session: &str) -> bool {
     let pid_path = get_pid_path(session);
     if !pid_path.exists() {
         return false;
@@ -124,7 +124,7 @@ fn is_daemon_running(session: &str) -> bool {
 }
 
 #[cfg(windows)]
-fn is_daemon_running(session: &str) -> bool {
+pub fn is_daemon_running(session: &str) -> bool {
     let pid_path = get_pid_path(session);
     if !pid_path.exists() {
         return false;

@@ -274,6 +274,9 @@ pub fn parse_command(args: &[String], flags: &Flags) -> Option<Value> {
             _ => None,
         },
 
+        // Session commands are handled entirely in main.rs
+        "session" => None,
+
         _ => None,
     }
 }

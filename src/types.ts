@@ -722,6 +722,27 @@ export interface WindowNewCommand extends BaseCommand {
   viewport?: { width: number; height: number };
 }
 
+// Browserbase session commands
+export interface BbSessionListCommand extends BaseCommand {
+  action: 'bb_session_list';
+  status?: 'RUNNING' | 'ERROR' | 'TIMED_OUT' | 'COMPLETED';
+}
+
+export interface BbSessionGetCommand extends BaseCommand {
+  action: 'bb_session_get';
+  sessionId: string;
+}
+
+export interface BbSessionDebugCommand extends BaseCommand {
+  action: 'bb_session_debug';
+  sessionId: string;
+}
+
+export interface BbSessionStopCommand extends BaseCommand {
+  action: 'bb_session_stop';
+  sessionId: string;
+}
+
 // Union of all command types
 export type Command =
   | LaunchCommand
@@ -837,7 +858,11 @@ export type Command =
   | InsertTextCommand
   | MultiSelectCommand
   | WaitForDownloadCommand
-  | ResponseBodyCommand;
+  | ResponseBodyCommand
+  | BbSessionListCommand
+  | BbSessionGetCommand
+  | BbSessionDebugCommand
+  | BbSessionStopCommand;
 
 // Response types
 export interface SuccessResponse<T = unknown> {
