@@ -654,8 +654,22 @@ export class BrowserManager {
       return false;
     }
 
-    const bb = new Browserbase({ apiKey: browserbaseApiKey });
-    const session = await bb.sessions.create({ projectId: browserbaseProjectId });
+    const response = await fetch('https://api.browserbase.com/v1/sessions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-BB-API-Key': browserbaseApiKey,
+      },
+      body: JSON.stringify({
+        projectId: browserbaseProjectId,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to create Browserbase session: ${response.statusText}`);
+    }
+
+    const session = await response.json() as { connectUrl: string };
     this.browser = await chromium.connectOverCDP(session.connectUrl);
 
     // Get default context to ensure sessions are recorded
