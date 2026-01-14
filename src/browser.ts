@@ -70,6 +70,8 @@ export class BrowserManager {
   private browser: Browser | null = null;
   private cdpPort: number | null = null;
   private isPersistentContext: boolean = false;
+  private browserbaseSessionId: string | null = null;
+  private browserbaseApiKey: string | null = null;
   private contexts: BrowserContext[] = [];
   private pages: Page[] = [];
   private activePageIndex: number = 0;
@@ -643,6 +645,18 @@ export class BrowserManager {
   }
 
   /**
+   * Close a Browserbase session via API
+   */
+  private async closeBrowserbaseSession(sessionId: string, apiKey: string): Promise<void> {
+    await fetch(`https://api.browserbase.com/v1/sessions/${sessionId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-BB-API-Key': apiKey,
+      },
+    });
+  }
+
+  /**
    * Connect to Browserbase remote browser via CDP.
    * Returns true if connected, false if credentials not available.
    */
@@ -669,21 +683,38 @@ export class BrowserManager {
       throw new Error(`Failed to create Browserbase session: ${response.statusText}`);
     }
 
-    const session = await response.json() as { connectUrl: string };
-    this.browser = await chromium.connectOverCDP(session.connectUrl);
+    const session = await response.json() as { id: string; connectUrl: string };
+    
+    const browser = await chromium.connectOverCDP(session.connectUrl).catch(() => {
+      throw new Error('Failed to connect to Browserbase session via CDP');
+    });
 
-    // Get default context to ensure sessions are recorded
-    const context = this.browser.contexts()[0];
-    context.setDefaultTimeout(10000);
-    this.contexts.push(context);
+    try {
+      const contexts = browser.contexts();
+      if (contexts.length === 0) {
+        throw new Error('No browser context found in Browserbase session');
+      }
 
-    // Get existing page or create new one
-    const page = context.pages()[0] ?? (await context.newPage());
-    this.pages.push(page);
-    this.activePageIndex = 0;
-    this.setupPageTracking(page);
+      const context = contexts[0];
+      const pages = context.pages();
+      const page = pages[0] ?? (await context.newPage());
 
-    return true;
+      this.browserbaseSessionId = session.id;
+      this.browserbaseApiKey = browserbaseApiKey;
+      this.browser = browser;
+      context.setDefaultTimeout(10000);
+      this.contexts.push(context);
+      this.pages.push(page);
+      this.activePageIndex = 0;
+      this.setupPageTracking(page);
+
+      return true;
+    } catch (error) {
+      await this.closeBrowserbaseSession(session.id, browserbaseApiKey).catch((sessionError) => {
+        console.error('Failed to close Browserbase session during cleanup:', sessionError);
+      });
+      throw error;
+    }
   }
 
   /**
@@ -1411,6 +1442,15 @@ export class BrowserManager {
 
     // CDP: only disconnect, don't close external app's pages
     if (this.cdpPort !== null) {
+    if (this.browserbaseSessionId && this.browserbaseApiKey) {
+      await this.closeBrowserbaseSession(this.browserbaseSessionId, this.browserbaseApiKey).catch(
+        (error) => {
+          console.error('Failed to close Browserbase session:', error);
+        }
+      );
+      this.browser = null;
+    } else if (this.cdpPort !== null) {
+      // CDP: only disconnect, don't close external app's pages
       if (this.browser) {
         await this.browser.close().catch(() => {});
         this.browser = null;
@@ -1432,6 +1472,8 @@ export class BrowserManager {
     this.pages = [];
     this.contexts = [];
     this.cdpPort = null;
+    this.browserbaseSessionId = null;
+    this.browserbaseApiKey = null;
     this.isPersistentContext = false;
     this.activePageIndex = 0;
     this.refMap = {};
