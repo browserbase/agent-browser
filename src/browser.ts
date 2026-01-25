@@ -394,6 +394,40 @@ export class BrowserManager {
   }
 
   /**
+   * Set device scale factor (devicePixelRatio) via CDP
+   * This sets window.devicePixelRatio which affects how the page renders and responds to media queries
+   *
+   * Note: When using CDP to set deviceScaleFactor, screenshots will be at logical pixel dimensions
+   * (viewport size), not physical pixel dimensions (viewport × scale). This is a Playwright limitation
+   * when using CDP emulation on existing contexts. For true HiDPI screenshots with physical pixels,
+   * deviceScaleFactor must be set at context creation time.
+   *
+   * Must be called after setViewport to work correctly
+   */
+  async setDeviceScaleFactor(
+    deviceScaleFactor: number,
+    width: number,
+    height: number,
+    mobile: boolean = false
+  ): Promise<void> {
+    const cdp = await this.getCDPSession();
+    await cdp.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor,
+      mobile,
+    });
+  }
+
+  /**
+   * Clear device metrics override to restore default devicePixelRatio
+   */
+  async clearDeviceMetricsOverride(): Promise<void> {
+    const cdp = await this.getCDPSession();
+    await cdp.send('Emulation.clearDeviceMetricsOverride');
+  }
+
+  /**
    * Get device descriptor
    */
   getDevice(deviceName: string): (typeof devices)[keyof typeof devices] | undefined {
